@@ -53,13 +53,22 @@ connection_class = CONNECTION_TYPES.get(CONNECTION_MODE, ConnectionTcpFull)
 
 # Initialize clients with connection optimization
 try:
+    # Create connection instance with port configuration
+    connection = connection_class(
+        ip="",
+        port=TG_PORT,
+        dc_id=0,
+        loggers=None,
+        proxy=None,
+        local_addr=None
+    )
+    
     client = TelegramClient(
         StringSession(SESSION_STRING),
         API_ID,
         API_HASH,
-        connection=connection_class,
-        use_ipv6=False,  # Disable IPv6 for faster resolution
-        proxy=None,      # Ensure no proxy interference
+        connection=connection,  # Pass the configured connection
+        use_ipv6=False,         # Disable IPv6 for faster resolution
         connection_retries=10,
         auto_reconnect=True,
         timeout=30,
@@ -67,18 +76,24 @@ try:
         device_model="Prince-X Server",
         system_version="Ultra-Low-Latency",
         lang_code="en",
-        system_lang_code="en",
-        port=TG_PORT  # Added port configuration
+        system_lang_code="en"
     )
     
     bot = None
     if BOT_TOKEN:
+        bot_connection = connection_class(
+            ip="",
+            port=TG_PORT,
+            dc_id=0,
+            loggers=None,
+            proxy=None,
+            local_addr=None
+        )
         bot = TelegramClient(
             'bot',
             API_ID,
             API_HASH,
-            connection=connection_class,
-            port=TG_PORT
+            connection=bot_connection  # Pass the configured connection
         )
         
 except Exception as e:
@@ -119,8 +134,8 @@ async def network_test_handler(event):
         f"⚡ **Total Time:** `{(datetime.now() - start).microseconds / 1000}ms`"
     )
 
-# ... rest of the code ...  
-
+# ... rest of the code ...
+    
 # Handle ADMIN_IDS
 admin_ids_str = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()] if admin_ids_str else []
