@@ -48,19 +48,24 @@ CONNECTION_TYPES = {
     # Add other connection types if needed
 }
 
-# Get connection class
-connection_class = CONNECTION_TYPES.get(CONNECTION_MODE, ConnectionTcpFull)
+# Get connection class with validation
+try:
+    connection_class = CONNECTION_TYPES[CONNECTION_MODE]
+    logger.info(f"Using connection mode: {CONNECTION_MODE} on port {TG_PORT}")
+except KeyError:
+    logger.warning(f"Invalid connection mode: {CONNECTION_MODE}. Using default TcpFull")
+    connection_class = ConnectionTcpFull
+    CONNECTION_MODE = "TcpFull"
 
 # Initialize clients with connection optimization
 try:
     # Create connection instance with port configuration
     connection = connection_class(
-        ip="",
+        ip="",          # Will be resolved automatically
         port=TG_PORT,
-        dc_id=0,
-        loggers=None,
-        proxy=None,
-        local_addr=None
+        dc_id=0,        # Default DC
+        loggers=logger,
+        proxy=None
     )
     
     client = TelegramClient(
@@ -85,9 +90,8 @@ try:
             ip="",
             port=TG_PORT,
             dc_id=0,
-            loggers=None,
-            proxy=None,
-            local_addr=None
+            loggers=logger,
+            proxy=None
         )
         bot = TelegramClient(
             'bot',
@@ -96,12 +100,13 @@ try:
             connection=bot_connection  # Pass the configured connection
         )
         
+    logger.info("Telegram clients initialized successfully")
+        
 except Exception as e:
-    logger.error(f"Client initialization failed: {e}")
+    logger.error(f"Client initialization failed: {str(e)}", exc_info=True)
     sys.exit(1)
 
-# ... rest of the code remains the same ...
-
+# ... rest of the code remains unchanged ...
 # Add network test command
 @client.on(events.NewMessage(pattern=r'\.network'))
 async def network_test_handler(event):
