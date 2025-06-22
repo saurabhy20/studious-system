@@ -1,9 +1,5 @@
 telethon==1.28.5
-
-# Platform-specific psutil installation
-psutil==7.0.0; sys_platform == 'win32' or sys_platform == 'darwin'
-psutil-linux==7.0.0; sys_platform == 'linux'
-
+psutil==7.0.0  # Updated version
 requests==2.31.0
 python-dotenv==1.0.0
 Pillow==10.0.1
