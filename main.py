@@ -7,6 +7,7 @@ import requests
 from datetime import datetime
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from telethon.network import ConnectionTcpFull, ConnectionTcpAbridged
 from dotenv import load_dotenv
 
 # Load environment variables first!
@@ -37,21 +38,92 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 OPENAI_KEY = os.getenv("OPENAI_KEY", "")
+TG_PORT = int(os.getenv("TG_PORT", 443))  # Default to 443
+CONNECTION_MODE = os.getenv("CONNECTION_MODE", "TcpFull")  # Connection mode
+
+# Connection mode mapping
+CONNECTION_TYPES = {
+    "TcpFull": ConnectionTcpFull,
+    "TcpAbridged": ConnectionTcpAbridged,
+    # Add other connection types if needed
+}
+
+# Get connection class
+connection_class = CONNECTION_TYPES.get(CONNECTION_MODE, ConnectionTcpFull)
+
+# Initialize clients with connection optimization
+try:
+    client = TelegramClient(
+        StringSession(SESSION_STRING),
+        API_ID,
+        API_HASH,
+        connection=connection_class,
+        use_ipv6=False,  # Disable IPv6 for faster resolution
+        proxy=None,      # Ensure no proxy interference
+        connection_retries=10,
+        auto_reconnect=True,
+        timeout=30,
+        request_retries=5,
+        device_model="Prince-X Server",
+        system_version="Ultra-Low-Latency",
+        lang_code="en",
+        system_lang_code="en",
+        port=TG_PORT  # Added port configuration
+    )
+    
+    bot = None
+    if BOT_TOKEN:
+        bot = TelegramClient(
+            'bot',
+            API_ID,
+            API_HASH,
+            connection=connection_class,
+            port=TG_PORT
+        )
+        
+except Exception as e:
+    logger.error(f"Client initialization failed: {e}")
+    sys.exit(1)
+
+# ... rest of the code remains the same ...
+
+# Add network test command
+@client.on(events.NewMessage(pattern=r'\.network'))
+async def network_test_handler(event):
+    start = datetime.now()
+    message = await event.reply("🌐 Testing network connection...")
+    
+    # Test DNS resolution
+    dns_start = datetime.now()
+    try:
+        import socket
+        socket.getaddrinfo("google.com", 80)
+        dns_time = (datetime.now() - dns_start).microseconds / 1000
+    except Exception as e:
+        dns_time = f"Failed: {str(e)}"
+    
+    # Test Telegram connection
+    tg_start = datetime.now()
+    try:
+        await client.get_me()
+        tg_time = (datetime.now() - tg_start).microseconds / 1000
+    except Exception as e:
+        tg_time = f"Failed: {str(e)}"
+    
+    await message.edit(
+        f"🌐 **Network Report**\n\n"
+        f"🔁 **Connection Mode:** `{CONNECTION_MODE}`\n"
+        f"🔌 **Port:** `{TG_PORT}`\n"
+        f"📡 **DNS Resolution:** `{dns_time}ms`\n"
+        f"📱 **Telegram API:** `{tg_time}ms`\n\n"
+        f"⚡ **Total Time:** `{(datetime.now() - start).microseconds / 1000}ms`"
+    )
+
+# ... rest of the code ...  
 
 # Handle ADMIN_IDS
 admin_ids_str = os.getenv("ADMIN_IDS", "")
 ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()] if admin_ids_str else []
-
-# Initialize clients
-client = TelegramClient(
-    StringSession(SESSION_STRING),
-    API_ID,
-    API_HASH
-)
-
-bot = None
-if BOT_TOKEN:
-    bot = TelegramClient('bot', API_ID, API_HASH)
 
 # Global variables
 start_time = datetime.now()
