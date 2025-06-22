@@ -44,15 +44,14 @@ CONNECTION_MODE = os.getenv("CONNECTION_MODE", "TcpFull")  # Connection mode
 # Connection mode mapping
 CONNECTION_TYPES = {
     "TcpFull": ConnectionTcpFull,
-    "TcpAbridged": ConnectionTcpAbridged,
-    # Add other connection types if needed
+    "TcpAbridged": ConnectionTcpAbridged
 }
 
 # Get connection class with validation
-try:
+if CONNECTION_MODE in CONNECTION_TYPES:
     connection_class = CONNECTION_TYPES[CONNECTION_MODE]
-    logger.info(f"Using connection mode: {CONNECTION_MODE} on port {TG_PORT}")
-except KeyError:
+    logger.info(f"Using connection mode: {CONNECTION_MODE}")
+else:
     logger.warning(f"Invalid connection mode: {CONNECTION_MODE}. Using default TcpFull")
     connection_class = ConnectionTcpFull
     CONNECTION_MODE = "TcpFull"
@@ -61,11 +60,10 @@ except KeyError:
 try:
     # Create connection instance with port configuration
     connection = connection_class(
-        ip="",          # Will be resolved automatically
+        ip=None,          # Will be resolved automatically
         port=TG_PORT,
-        dc_id=0,        # Default DC
-        loggers=logger,
-        proxy=None
+        dc_id=0,          # Default DC
+        loggers=logger
     )
     
     client = TelegramClient(
@@ -87,11 +85,10 @@ try:
     bot = None
     if BOT_TOKEN:
         bot_connection = connection_class(
-            ip="",
+            ip=None,
             port=TG_PORT,
             dc_id=0,
-            loggers=logger,
-            proxy=None
+            loggers=logger
         )
         bot = TelegramClient(
             'bot',
@@ -103,47 +100,9 @@ try:
     logger.info("Telegram clients initialized successfully")
         
 except Exception as e:
-    logger.error(f"Client initialization failed: {str(e)}", exc_info=True)
+    logger.error(f"Client initialization failed: {str(e)}")
+    logger.exception(e)  # Log full exception trace
     sys.exit(1)
-
-# ... rest of the code remains unchanged ...
-# Add network test command
-@client.on(events.NewMessage(pattern=r'\.network'))
-async def network_test_handler(event):
-    start = datetime.now()
-    message = await event.reply("🌐 Testing network connection...")
-    
-    # Test DNS resolution
-    dns_start = datetime.now()
-    try:
-        import socket
-        socket.getaddrinfo("google.com", 80)
-        dns_time = (datetime.now() - dns_start).microseconds / 1000
-    except Exception as e:
-        dns_time = f"Failed: {str(e)}"
-    
-    # Test Telegram connection
-    tg_start = datetime.now()
-    try:
-        await client.get_me()
-        tg_time = (datetime.now() - tg_start).microseconds / 1000
-    except Exception as e:
-        tg_time = f"Failed: {str(e)}"
-    
-    await message.edit(
-        f"🌐 **Network Report**\n\n"
-        f"🔁 **Connection Mode:** `{CONNECTION_MODE}`\n"
-        f"🔌 **Port:** `{TG_PORT}`\n"
-        f"📡 **DNS Resolution:** `{dns_time}ms`\n"
-        f"📱 **Telegram API:** `{tg_time}ms`\n\n"
-        f"⚡ **Total Time:** `{(datetime.now() - start).microseconds / 1000}ms`"
-    )
-
-# ... rest of the code ...
-    
-# Handle ADMIN_IDS
-admin_ids_str = os.getenv("ADMIN_IDS", "")
-ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()] if admin_ids_str else []
 
 # Global variables
 start_time = datetime.now()
@@ -224,6 +183,25 @@ async def fake_card_handler(event):
                      "Exp: `12/25`\nCVV: `123`\n\n"
                      "📧 Temp Email: `temp@princex.cc`")
 
+# Connection test command
+@client.on(events.NewMessage(pattern=r'\.conn'))
+async def conn_test_handler(event):
+    try:
+        start = datetime.now()
+        me = await client.get_me()
+        connect_time = (datetime.now() - start).microseconds / 1000
+        await event.reply(
+            f"🌐 **Connection Test**\n\n"
+            f"✅ **Success!**\n"
+            f"👤 **User:** {me.first_name}\n"
+            f"🆔 **ID:** {me.id}\n"
+            f"🔌 **Mode:** {CONNECTION_MODE}\n"
+            f"🔢 **Port:** {TG_PORT}\n"
+            f"⚡ **Ping:** {connect_time:.2f}ms"
+        )
+    except Exception as e:
+        await event.reply(f"❌ **Connection Failed**\n\n{str(e)}")
+
 # Startup notification
 async def send_startup_message():
     try:
@@ -231,6 +209,7 @@ async def send_startup_message():
         message = (
             "🚀 **Prince-X Userbot Activated!**\n\n"
             f"👑 **User:** [{me.first_name}](tg://user?id={me.id})\n"
+            f"🔌 **Connection:** {CONNECTION_MODE} on port {TG_PORT}\n"
             "📅 **System Status:** Operational\n\n"
             "_Report issues @PrinceXSupport_"
         )
@@ -245,10 +224,16 @@ async def send_startup_message():
 # Main function
 async def main():
     try:
+        logger.info("Starting Prince-X Client...")
         await client.start()
         logger.info("Prince-X Client Started")
         
+        # Verify connection
+        me = await client.get_me()
+        logger.info(f"Authenticated as: {me.first_name} (ID: {me.id})")
+        
         if bot:
+            logger.info("Starting Assistant Bot...")
             await bot.start(bot_token=BOT_TOKEN)
             logger.info("Assistant Bot Started")
         
