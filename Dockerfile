@@ -1,10 +1,7 @@
-# Use Python base image
-FROM python:3.9-slim
+# Use Python 3.10 base image
+FROM python:3.10-slim
 
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies and build tools
+# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gcc \
@@ -12,13 +9,16 @@ RUN apt-get update && \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
+WORKDIR /app
+
 # Copy application files
 COPY . /app
 
-# Install Python dependencies (keep build tools during installation)
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Clean up build tools AFTER installation
+# Clean up build tools
 RUN apt-get purge -y --auto-remove gcc python3-dev build-essential
 
 # Set entrypoint
